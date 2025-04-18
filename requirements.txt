@@ -1,3 +1,7 @@
 streamlit
 pandas
-openpyxl
+openpyxl          # read Excel
+gspread           # Google‑Sheet API wrapper
+google-auth       # <── gives google.oauth2.service_account
+google-auth-oauthlib
+google-auth-httplib2
