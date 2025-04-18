@@ -12,9 +12,9 @@ import random
 import string
 import time
 import datetime
+from pathlib import Path
 import socket
 import platform
-from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -109,7 +109,7 @@ for k, v in {
     st.session_state.setdefault(k, v)
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 1. Login + OTP step (wizard screen 1)
+# 1. Login + OTP step
 # ────────────────────────────────────────────────────────────────────────────────
 if not st.session_state.authenticated:
     st.title("🔐 Employee Data Verification Portal")
@@ -119,7 +119,6 @@ if not st.session_state.authenticated:
         send_btn = st.form_submit_button("Send OTP")
 
     if send_btn:
-        # basic validations
         if not any(email.lower().endswith("@" + d) for d in ALLOWED_EMAIL_DOMAINS):
             st.error("Please use Gmail, Yahoo, or Outlook only.")
         elif not emp_id.isdigit() or int(emp_id) not in df_master.index:
@@ -139,12 +138,10 @@ if not st.session_state.authenticated:
             send_otp(email, otp_plain)
             st.success("OTP sent! Check your inbox.")
 
-    # Show OTP box only after sending
     if st.session_state.otp_sent:
         with st.form("otp_form"):
             otp_in = st.text_input("Enter OTP", max_chars=6)
             verify_btn = st.form_submit_button("Verify OTP")
-
         if verify_btn:
             if time.time() - st.session_state.otp_time > OTP_VALID_FOR_SEC:
                 st.error("OTP expired. Click 'Send OTP' again.")
@@ -156,10 +153,10 @@ if not st.session_state.authenticated:
                 st.success("Authenticated! Proceed below.")
             else:
                 st.session_state.otp_attempts += 1
-                st.error("Incorrect OTP. Attempt %d/%d" % (st.session_state.otp_attempts, MAX_OTP_ATTEMPTS))
+                st.error(f"Incorrect OTP. Attempt {st.session_state.otp_attempts}/{MAX_OTP_ATTEMPTS}")
 
 # ────────────────────────────────────────────────────────────────────────────────
-# 2. Verification wizard (screen 2)
+# 2. Verification wizard
 # ────────────────────────────────────────────────────────────────────────────────
 if st.session_state.authenticated:
     emp_id_int = int(st.session_state.employee_id)
@@ -168,7 +165,6 @@ if st.session_state.authenticated:
     st.title("📋 Verify Your Details")
     st.caption("Tap field → confirm or correct → *Next*. Only one submission allowed.")
 
-    # Collect corrections
     corrections = {}
     with st.form("verify_form"):
         for col in df_master.columns:
@@ -181,6 +177,7 @@ if st.session_state.authenticated:
                 disp_val = orig_val
 
             st.markdown(f"### {col.replace('_', ' ').title()}")
+            st.markdown(f"Current value: **{disp_val}**")
             confirm = st.radio("Is this correct?", ["Yes", "No"], key=f"radio_{col}", horizontal=True)
             if confirm == "No":
                 if col in DROP_OPTIONS:
@@ -197,9 +194,6 @@ if st.session_state.authenticated:
 
         next_btn = st.form_submit_button("Review Summary")
 
-    # ────────────────────────────────────────────────────────────────────────────
-    # 3. Summary & Submit (screen 3)
-    # ────────────────────────────────────────────────────────────────────────────
     if next_btn:
         verified = {k: v[0] for k, v in corrections.items() if v[1] == "(confirmed)"}
         corrected = {k: v for k, v in corrections.items() if v[1] != "(confirmed)"}
@@ -210,40 +204,4 @@ if st.session_state.authenticated:
             st.markdown(f"• **{f.replace('_', ' ').title()}**: {v_str}")
 
         st.subheader("✏️ Fields Corrected")
-        for f, (old, new) in corrected.items():
-            old_str = old.strftime("%d/%m/%Y") if isinstance(old, (pd.Timestamp, datetime.date)) else old
-            new_str = new.strftime("%d/%m/%Y") if isinstance(new, (pd.Timestamp, datetime.date)) else new
-            st.markdown(f"• **{f.replace('_', ' ').title()}**\n    - Original: `{old_str}`\n    - New: `{new_str}`")
-
-        if st.button("Submit & Lock"):
-            # Assemble log row
-            now_iso = datetime.datetime.now().isoformat()
-            summary_row = {
-                "employee_id": emp_id_int,
-                "email": st.session_state.email,
-                "timestamp": now_iso,
-            }
-            for k, (old, new) in corrections.items():
-                summary_row[f"{k}_original"] = (
-                    old.strftime("%d/%m/%Y") if isinstance(old, (pd.Timestamp, datetime.date)) else old
-                )
-                summary_row[f"{k}_status"] = "corrected" if new != "(confirmed)" else "confirmed"
-                summary_row[f"{k}_new"] = (
-                    new.strftime("%d/%m/%Y") if isinstance(new, (pd.Timestamp, datetime.date)) else new if new != "(confirmed)" else ""
-                )
-
-            try:
-                sheet = get_gsheet("Verified Corrections Log")
-                sheet.append_row([str(summary_row[k]) for k in summary_row])
-            except Exception as e:
-                st.warning(f"Google Sheet unreachable → saved locally. ({e})")
-                csv_path = Path("verified_corrections_log.csv")
-                pd.DataFrame([summary_row]).to_csv(csv_path, mode="a", header=not csv_path.exists(), index=False)
-
-            st.success(f"✅ Submission recorded for Employee ID {emp_id_int}. Thank you!")
-            st.balloons()
-            # Lock further edits in current session
-            st.session_state.authenticated = False
-            st.session_state.otp_sent = False
-            st.session_state.otp_hash = ""
-            st.session_state.employee_id = ""
+        for f, (old
