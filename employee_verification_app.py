@@ -131,8 +131,7 @@ if st.session_state.authenticated:
         else:
             st.markdown("*No fields were marked as correct.*")
 
-        st.markdown("
-### ✏️ Fields You Marked for Correction")
+        st.markdown("### ✏️ Fields You Marked for Correction")
         if corrected:
             for field, (old_val, new_val) in corrected.items():
                 old_fmt = old_val.strftime('%d/%m/%Y') if isinstance(old_val, (pd.Timestamp, datetime.date)) else old_val
@@ -143,8 +142,7 @@ if st.session_state.authenticated:
         else:
             st.markdown("*No fields were marked for correction.*")
 
-        st.markdown("
-Please confirm if you are satisfied with your review. You may choose to go back and revise your responses or submit them now.")
+        st.markdown("Please confirm if you are satisfied with your review. You may choose to go back and revise your responses or submit them now.")
         
             summary = {
                 "employee_id": emp_id,
