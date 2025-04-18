@@ -120,16 +120,32 @@ if st.session_state.authenticated:
             corrections[col] = (current_val, "(confirmed)")
 
     if st.button("Review Summary"):
-        st.subheader("✅ Your Review Summary")
-        verified = {k: v[0] for k, v in corrections.items() if v[1] == "(confirmed)"}
-        corrected = {k: v for k, v in corrections.items() if v[1] != "(confirmed)"}
+        st.subheader("✅ Summary of Your Review")
+        st.write("Below is a summary of the information you have reviewed.")
 
-        st.markdown("**Confirmed Fields:**")
-        st.json(verified)
-        st.markdown("**Corrected Fields:**")
-        st.json(corrected)
+        st.markdown("### ✅ Fields You Confirmed as Correct")
+        if verified:
+            for field, value in verified.items():
+                formatted = value.strftime('%d/%m/%Y') if isinstance(value, (pd.Timestamp, datetime.date)) else value
+                st.markdown(f"- **{field.replace('_', ' ').title()}**: {formatted}")
+        else:
+            st.markdown("*No fields were marked as correct.*")
 
-        if st.button("Submit Confirmation"):
+        st.markdown("
+### ✏️ Fields You Marked for Correction")
+        if corrected:
+            for field, (old_val, new_val) in corrected.items():
+                old_fmt = old_val.strftime('%d/%m/%Y') if isinstance(old_val, (pd.Timestamp, datetime.date)) else old_val
+                new_fmt = new_val.strftime('%d/%m/%Y') if isinstance(new_val, (pd.Timestamp, datetime.date)) else new_val
+                st.markdown(f"- **{field.replace('_', ' ').title()}**:
+    - Original: `{old_fmt}`
+    - Suggested Correction: `{new_fmt}`")
+        else:
+            st.markdown("*No fields were marked for correction.*")
+
+        st.markdown("
+Please confirm if you are satisfied with your review. You may choose to go back and revise your responses or submit them now.")
+        
             summary = {
                 "employee_id": emp_id,
                 "email": st.session_state.email,
@@ -144,9 +160,23 @@ if st.session_state.authenticated:
 
             summary_df = pd.DataFrame([summary])
             try:
-                old = pd.read_csv("verified_corrections_log.csv")
-                new_df = pd.concat([old, summary_df], ignore_index=True)
-            except FileNotFoundError:
-                new_df = summary_df
-            new_df.to_csv("verified_corrections_log.csv", index=False)
-            st.success("✅ Your response has been recorded successfully!")
+                import gspread
+                from oauth2client.service_account import ServiceAccountCredentials
+                scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+                from google.oauth2.service_account import Credentials
+                creds = Credentials.from_service_account_info(st.secrets["gspread_service_account"])
+                client = gspread.authorize(creds)
+                sheet = client.open("Verified Corrections Log").sheet1
+                sheet.append_row(summary_df.iloc[0].astype(str).tolist())
+            except Exception as e:
+                st.warning(f"⚠️ Could not write to Google Sheet: {e}. Data saved locally instead.")
+                try:
+                    old = pd.read_csv("verified_corrections_log.csv")
+                    new_df = pd.concat([old, summary_df], ignore_index=True)
+                except FileNotFoundError:
+                    new_df = summary_df
+                new_df.to_csv("verified_corrections_log.csv", index=False)
+            st.success(f"✅ Successfully submitted details for Employee ID {emp_id}. Thank you for verifying your information!")
+st.balloons()
+st.markdown("---")
+st.markdown("You may now close this window.")
