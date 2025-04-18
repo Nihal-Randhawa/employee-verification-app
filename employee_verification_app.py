@@ -1,5 +1,3 @@
-# Contents from the Streamlit app provided earlier
-# You should paste the complete app code here
 # Streamlit App: Employee Data Verification with Email OTP
 
 import streamlit as st
@@ -18,8 +16,8 @@ import platform
 ALLOWED_EMAIL_DOMAINS = ["gmail.com", "yahoo.com", "outlook.com"]
 OTP_VALIDITY_SECONDS = 300  # 5 minutes
 
-EMAIL_ADDRESS = "Nihal18n@gmail.com"
-EMAIL_PASSWORD = "fxgn xgfn iikd qbur"  # Your Gmail App Password
+EMAIL_ADDRESS = st.secrets["EMAIL_ADDRESS"]
+EMAIL_PASSWORD = st.secrets["EMAIL_PASSWORD"]  # Stored securely in Streamlit secrets
 
 # Session state
 if "otp" not in st.session_state:
@@ -102,8 +100,16 @@ if st.session_state.authenticated:
 
     for col in df.columns:
         current_val = employee_data[col]
-        st.markdown(f"**{col.replace('_', ' ').title()}**: {current_val}")
-        confirm = st.radio(f"Is this correct? ({col})", ["Yes", "No"], key=col)
+        if pd.isna(current_val) and col == 'employee_middle_name':
+            current_val_display = "Blank, that is no middle name"
+        elif isinstance(current_val, pd.Timestamp):
+            current_val_display = current_val.strftime('%d/%m/%Y')
+        else:
+            current_val_display = current_val
+
+        st.markdown(f"**{col.replace('_', ' ').title()}**: {current_val_display}")
+        prompt = "Is this correct?" if col == 'employee_middle_name' else f"Is this correct? ({col})"
+        confirm = st.radio(prompt, ["Yes", "No"], key=col)
         if confirm == "No":
             if col in dropdown_fields:
                 new_val = st.selectbox(f"Select correct value for {col}", dropdown_fields[col], key="input_" + col)
