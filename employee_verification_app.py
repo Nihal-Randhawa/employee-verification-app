@@ -154,9 +154,9 @@ Please confirm if you are satisfied with your review. You may choose to go back 
                 "device": platform.platform(),
             }
             for k, v in corrections.items():
-                summary[k + "_original"] = v[0]
+                summary[k + "_original"] = v[0].strftime('%d/%m/%Y') if isinstance(v[0], (pd.Timestamp, datetime.date)) else v[0]
                 summary[k + "_status"] = "corrected" if v[1] != "(confirmed)" else "confirmed"
-                summary[k + "_new"] = v[1] if v[1] != "(confirmed)" else ""
+                summary[k + "_new"] = v[1].strftime('%d/%m/%Y') if isinstance(v[1], (pd.Timestamp, datetime.date)) else v[1] if v[1] != "(confirmed)" else ""
 
             summary_df = pd.DataFrame([summary])
             try:
